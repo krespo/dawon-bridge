@@ -28,10 +28,14 @@ preferences {
 
 	section("Login Information") {
 
-		    input "emailId", "text", required: true, title: "Google EMail Address"
+		input "emailId", "text", required: true, title: "Google e-mail Address"
         input "deviceId", "text", required: true, title: "Device ID"
         input "mainSwitch", "capability.switch", required: true, title: "Switch"
 	}
+    
+    section("Notification") {
+    	input "notiEnabled", "bool", required: false, title: "On/Off 요청 실패시 알림"
+    }
 
 
 }
@@ -62,6 +66,10 @@ def initialize() {
 }
 
 def switchHandler(evt) {
+	def eventData = parseJson(evt.data)
+    
+    //log.debug "event data: ${data}"
+    
 	sendDeviceAction(evt.value)
 }
 
@@ -150,10 +158,12 @@ def checkDeviceState() {
                         if(deviceState == true) {
                             log.debug "switch On"
                             mainSwitch.on()
+                            
                         }
                         else  {
                             log.debug "switch Off"
                             mainSwitch.off()
+                            
                         }
                     }
 
@@ -200,21 +210,33 @@ def findSessionId(headers) {
 }
 
 def sendDeviceAction(action) {
-
+	
     for(int retryCount = 0; retryCount < 2; retryCount ++) {
     	try {
 
             log.debug "send request device action"
             requestApiCallForDeviceAction(action)
+    
             break;
 
         }
         catch(e) {
-        	log.error "[${retryCouht + 1} 번 요청]디바이스 상태를 ${action}으로 변경하는데 실패했습니다 ==> ${e}"
+        	log.error "[${retryCount + 1} 번 요청]디바이스 상태를 ${action}으로 변경하는데 실패했습니다 ==> ${e}"
+            
+            if(retryCount > 0) {
+            	if(notiEnabled) {
+                	sendPush("다원플러그의 ${action} 실행에 실패했습니다.")
+                }
+                
+            	
+            }
+            
             tryLogin()
         }
 
     }
+    
+    
 }
 
 def requestApiCallForDeviceAction(action) {
@@ -241,6 +263,7 @@ def requestApiCallForDeviceAction(action) {
             }
         }
         else {
+        
             throw new RuntimeException()
         }
 
